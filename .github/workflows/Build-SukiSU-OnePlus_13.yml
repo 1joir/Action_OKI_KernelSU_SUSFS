@@ -98,24 +98,30 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
          
-      - name: Batch fix ddk_config conflict in all oplus modules
-        run: |
-          echo "Finding all conflicting BUILD.bazel files..."
-          CONFLICT_FILES=$(find ./kernel_workspace/kernel_platform/msm-kernel \
-            -name "BUILD.bazel" \
-            -exec grep -l "define_oplus_local_modules()" {} \; \
-            -exec grep -l "ddk_config(" {} \;)
-          
-          if [ -n "$CONFLICT_FILES" ]; then
-            echo "Found $(echo "$CONFLICT_FILES" | wc -l) conflicting files, starting fix..."
-            for FILE in $CONFLICT_FILES; do
-              echo "Fixing: $FILE"
-              sed -i '/^[[:space:]]*ddk_config(/,/^[[:space:]]*)/d' "$FILE"
-            done
-            echo "Batch fix done."
-          else
-            echo "No conflicting files found."
+       - name: Fix ddk_config conflict in oplus module logic
+         run: |
+          OPLUS_DEFINE_FILE="./kernel_workspace/kernel_platform/build/kernel/oplus/oplus_modules_define.bzl"
+          if [ ! -f "$OPLUS_DEFINE_FILE" ]; then
+          echo "Error: oplus_modules_define.bzl not found! Aborting fix."
+          exit 1
           fi
+          
+          echo "Modifying oplus_modules_define.bzl to avoid duplicate ddk_config..."
+          sed -i '/def define_oplus_ddk_module(/,/^}/ s/ddk_module(/ddk_module(\n        config_name = name + "_unique_config",/' "$OPLUS_DEFINE_FILE"
+
+          if grep -q "config_name = name + \"_unique_config\"" "$OPLUS_DEFINE_FILE"; then
+          echo "Successfully modified oplus_modules_define.bzl."
+          else
+          echo "Error: Failed to modify oplus_modules_define.bzl! Check sed pattern."
+          exit 1
+          fi
+          
+          echo "Batch fixing oplus_local_modules.bzl files..."
+          OPLUS_LOCAL_FILES=$(find ./kernel_workspace/kernel_platform/msm-kernel -name "oplus_local_modules.bzl")
+          for FILE in $OPLUS_LOCAL_FILES; do
+          sed -i '/ddk_module(/,/)/ s/ddk_module(/ddk_module(\n        config_name = name + "_unique_config",/' "$FILE"
+          echo "Fixed: $FILE"
+          done
           
       - name: SukiSU-Ultra & SukiSU version
         if: ${{ github.event.inputs.kernelsu_variant == 'SukiSU-Ultra' || github.event.inputs.kernelsu_variant == 'SukiSU' }}
