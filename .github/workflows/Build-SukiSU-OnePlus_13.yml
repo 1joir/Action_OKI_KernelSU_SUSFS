@@ -98,15 +98,23 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
          
-      - name: Fix ddk_config conflict in oplus_secure_common
+      - name: Batch fix ddk_config conflict in all oplus modules
         run: |
-         CONFLICT_FILE="kernel_workspace/kernel_platform/msm-kernel/drivers/input/oplus_secure_drivers/oplus_secure_common/BUILD.bazel"
-         if [ -f "$CONFLICT_FILE" ]; then
-         echo "Found conflict file, removing duplicate ddk_config..."
-         sed -i '/ddk_config(.*name = "oplus_secure_common_config"/,/)/d' "$CONFLICT_FILE"
-         echo "Duplicate ddk_config removed successfully."
-         else
-         echo "Conflict file not found, skipping fix."
+          echo "Finding all conflicting BUILD.bazel files..."
+          CONFLICT_FILES=$(find ./kernel_workspace/kernel_platform/msm-kernel \
+            -name "BUILD.bazel" \
+            -exec grep -l "define_oplus_local_modules()" {} \; \
+            -exec grep -l "ddk_config(" {} \;)
+          
+          if [ -n "$CONFLICT_FILES" ]; then
+            echo "Found $(echo "$CONFLICT_FILES" | wc -l) conflicting files, starting fix..."
+            for FILE in $CONFLICT_FILES; do
+              echo "Fixing: $FILE"
+              sed -i '/^[[:space:]]*ddk_config(/,/^[[:space:]]*)/d' "$FILE"
+            done
+            echo "Batch fix done."
+          else
+            echo "No conflicting files found."
           fi
           
       - name: SukiSU-Ultra & SukiSU version
