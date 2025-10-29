@@ -97,6 +97,7 @@ jobs:
          sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
          sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
+         
       - name: Fix ddk_config conflict in oplus_secure_common
         run: |
          CONFLICT_FILE="kernel_workspace/kernel_platform/msm-kernel/drivers/input/oplus_secure_drivers/oplus_secure_common/BUILD.bazel"
@@ -107,6 +108,7 @@ jobs:
          else
          echo "Conflict file not found, skipping fix."
           fi
+          
       - name: SukiSU-Ultra & SukiSU version
         if: ${{ github.event.inputs.kernelsu_variant == 'SukiSU-Ultra' || github.event.inputs.kernelsu_variant == 'SukiSU' }}
         run: |
